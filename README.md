@@ -120,4 +120,4 @@ Contributions are welcome! If you have any ideas or improvements, feel free to f
 
 ## Contact
 
-For any questions, feel free to reach out to [Angel Jimenez](mailto:angeljimenez@domain.com).
+For any questions, feel free to reach out to [Angel Jimenez](mailto:angeljjimenez04@gmail.com).
