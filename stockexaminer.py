@@ -56,8 +56,14 @@ def main():
     # Calculate returns for backtesting
     data = calculate_returns(data)
 
-    # Plot cumulative returns of the strategy and the stock
+    # Plot cumulative  returns of the strategy and the stock
     plot_cumulative_returns(data, ticker)
+
+    # Evalulate performance
+    evaluate_performance(data)
+    annualized_returns(data)
+    calculate_volatility(data)
+    calculate_sharpe_ratio(data)
 
 def generate_signals(data):
     data['Signal'] = 0
@@ -74,7 +80,7 @@ def generate_signals(data):
     return data
 
 def create_positions(data):
-    #Position is set as a data series for last buy signal
+    # Position is set as a data series for last buy signal
     data['Position'] = pd.Series(data['Signal'], index=data.index).replace(to_replace=0, method='ffill').shift()
     data['Position'].fillna(0, inplace=True)
 
@@ -84,7 +90,7 @@ def calculate_returns(data):
     data['Stock_Returns'] = data['Close'].pct_change() # daily percentage change in stock closing price
     data['Strategy_Returns'] = data['Stock_Returns'] * data['Position'] #returns of strategy based on holding position or staying out of market
     
-    #cumulative performance of stock and strategy over time
+    # cumulative performance of stock and strategy over time
     data['Cumulative_Stock_Returns'] = (1 + data['Stock_Returns']).cumprod() - 1
     data['Cumulative_Strategy_Returns'] = (1 + data['Strategy_Returns']).cumprod() - 1
 
@@ -100,6 +106,52 @@ def plot_cumulative_returns(data, ticker):
     plt.legend()
     plt.grid(True)
     plt.show()
+
+
+def evaluate_performance(data):
+    # Total returns (final value of cumulative returns)
+    total_stock_return = data['Cumulative_Stock_Returns'].iloc[-1]
+    total_strategy_return = data['Cumulative_Strategy_Returns'].iloc[-1]
+
+    print(f"Total Stock Return: {total_stock_return:.2%}")
+    print(f"Total Strategy Return: {total_strategy_return:.2%}")
+    
+    return total_stock_return, total_strategy_return #return for use in annualized function
+
+
+def annualized_returns(data, periods_per_year=252):
+    total_days = len(data)
+    total_stock_return = data['Cumulative_Stock_Returns'].iloc[-1]
+    total_strategy_return = data['Cumulative_Strategy_Returns'].iloc[-1]
+    
+    annual_stock_return = (1 + total_stock_return) ** (periods_per_year / total_days) - 1
+    annual_strategy_return = (1 + total_strategy_return) ** (periods_per_year / total_days) - 1
+    
+    print(f"Annualized Stock Return: {annual_stock_return:.2%}")
+    print(f"Annualized Strategy Return: {annual_strategy_return:.2%}")
+
+
+def calculate_volatility(data, _periods_per_year=252):
+    # Annualized volatility formula: daily_std * sqrt(periods_per_year)
+    stock_volatility = data['Stock_Returns'].std() * np.sqrt(_periods_per_year)
+    strategy_volatility = data['Strategy_Returns'].std() * np.sqrt(_periods_per_year)
+    
+    print(f"Stock Volatility (Annualized): {stock_volatility:.2%}")
+    print(f"Strategy Volatility (Annualized): {strategy_volatility:.2%}")
+
+
+def calculate_sharpe_ratio(data, _risk_free_rate=0.01, _periods_per_year=252):
+    # Excess returns
+    excess_stock_return = data['Stock_Returns'] - _risk_free_rate / _periods_per_year
+    excess_strategy_return = data['Strategy_Returns'] - _risk_free_rate / _periods_per_year
+    
+    # Sharpe ratio formula: mean(excess_return) / std_dev(excess_return) * sqrt(periods_per_year)
+    stock_sharpe_ratio = (excess_stock_return.mean() / excess_stock_return.std()) * np.sqrt(_periods_per_year)
+    strategy_sharpe_ratio = (excess_strategy_return.mean() / excess_strategy_return.std()) * np.sqrt(_periods_per_year)
+    
+    print(f"Stock Sharpe Ratio: {stock_sharpe_ratio:.2f}")
+    print(f"Strategy Sharpe Ratio: {strategy_sharpe_ratio:.2f}")
+
 
 if __name__ == '__main__':
     main()
