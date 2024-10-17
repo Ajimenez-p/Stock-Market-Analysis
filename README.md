@@ -58,8 +58,8 @@ pytest
    Clone the repository from GitHub:
 
    ```bash
-   git clone https://github.com/yourusername/stock-examiner.git
-   cd stock-examiner
+   git clone https://github.com/Ajimenez-p/Stock-Market-Analysis.git
+   cd Stock-Market-Analysis
    ```
 
 2. **Run the Program**:
