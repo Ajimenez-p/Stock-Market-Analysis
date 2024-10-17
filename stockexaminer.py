@@ -4,80 +4,118 @@ import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
 #import pandas_ta as ta
+import os
 
 # Fetches stock data from Yahoo!
 import yfinance as yf 
 
 def main():
     # Grab data from Yahoo! Finance
-    tickers = ['HD', 'WMT', 'AMZN', 'MCD', 'W']
+    tickers = []
+    while True:
+        user_input = input('Enter a ticker symbol (or type \'stop\' to finish): ').strip()
+        if user_input.lower() == 'stop':
+            break
+        else:
+            tickers.append(user_input.upper())
+    
+    if not tickers:
+        print('No tickers entered, exiting...')
+        return
+    
+    # Ensure output folder exists
+    output_folder = 'output'
+    if not os.path.exists(output_folder):
+        os.makedirs(output_folder)
+
     results = []
     for ticker in tickers:
         print(f'Backtesting strategy on {ticker}...\\n')
 
-        start_date = '2021-07-21'
-        end_date = '2024-10-11'
-        data = yf.download(ticker, start=start_date, end=end_date)
-    
-    # Display first few rows of dataset
-    #print(f'First few rows of {ticker} dataset:')
-    #print(data.head())
-    #print('\n')
-
-        # Exploratory data analysis
-        print('\nMissing values in dataset:')
-        print(data.isnull().sum())
-        print('\n')
-        print('\nSummary stats for dataset:')
-        print(data.describe())
-        print('\n')
-
-        # Calculate SMA, EMA
-        data['SMA_20'] = data['Close'].rolling(window=20).mean()  # 20 Day SMA
-        data['SMA_50'] = data['Close'].rolling(window=50).mean()  # 50 Day SMA
-        data['EMA_20'] = data['Close'].ewm(span=20, adjust=False).mean()  # 20 day EMA
-
-        # Calculate RSI
-        delta = data['Close'].diff(1)
-        gain = np.where(delta > 0, delta, 0)
-        loss = np.where(delta < 0, -delta, 0)
+        try:
+            start_date = '2021-07-21'
+            end_date = '2024-10-11'
+            data = yf.download(ticker, start=start_date, end=end_date)
         
-        avg_gain = pd.Series(gain).rolling(window=14).mean()
-        avg_loss = pd.Series(loss).rolling(window=14).mean()
+        # Display first few rows of dataset
+        #print(f'First few rows of {ticker} dataset:')
+        #print(data.head())
+        #print('\n')
 
-        rs = avg_gain / (avg_loss + 1e-10)  # Prevent division by zero
-        data['RSI_14'] = 100 - (100 / (1 + rs))
+            if data.empty:
+                print(f'Error: No data found for ticker {ticker}. Skipping...')
+                continue
 
-        # Calculate MACD (12-day EMA - 26-day EMA)
-        data['EMA_12'] = data['Close'].ewm(span=12, adjust=False).mean()
-        data['EMA_26'] = data['Close'].ewm(span=26, adjust=False).mean()
-        data['MACD'] = data['EMA_12'] - data['EMA_26']
-        data['MACD_Signal'] = data['MACD'].ewm(span=9, adjust=False).mean()
+        except Exception as e:
+            print(f'Error fetching data for ticker {ticker}: {e}.\nSkipping...')
+            continue
 
-        #optimize strategy parameters
-        best_params = optimize_strategy(data)
-        rsi_lower, rsi_upper, sma_window, ema_window = best_params
+        try:
+            # Exploratory data analysis
+            print('\nMissing values in dataset:')
+            print(data.isnull().sum())
+            print('\n')
+            print('\nSummary stats for dataset:')
+            print(data.describe())
+            print('\n')
 
-        #calculate indicators w/ params
-        data = calculate_indicators(data, rsi_lower, rsi_upper, sma_window, ema_window)
+            # Calculate SMA, EMA
+            data['SMA_20'] = data['Close'].rolling(window=20).mean()  # 20 Day SMA
+            data['SMA_50'] = data['Close'].rolling(window=50).mean()  # 50 Day SMA
+            data['EMA_20'] = data['Close'].ewm(span=20, adjust=False).mean()  # 20 day EMA
 
-        # Generate buy/sell signals based on RSI and MACD
-        data = generate_signals(data)
+            # Calculate RSI
+            delta = data['Close'].diff(1)
+            gain = np.where(delta > 0, delta, 0)
+            loss = np.where(delta < 0, -delta, 0)
+            
+            avg_gain = pd.Series(gain).rolling(window=14).mean()
+            avg_loss = pd.Series(loss).rolling(window=14).mean()
 
-        # Create positions based on signals
-        data = create_positions(data)
+            rs = avg_gain / (avg_loss + 1e-10)  # Prevent division by zero
+            data['RSI_14'] = 100 - (100 / (1 + rs))
 
-        # Calculate returns for backtesting
-        data = calculate_returns(data)
+            # Calculate MACD (12-day EMA - 26-day EMA)
+            data['EMA_12'] = data['Close'].ewm(span=12, adjust=False).mean()
+            data['EMA_26'] = data['Close'].ewm(span=26, adjust=False).mean()
+            data['MACD'] = data['EMA_12'] - data['EMA_26']
+            data['MACD_Signal'] = data['MACD'].ewm(span=9, adjust=False).mean()
 
-        # Plot cumulative  returns of the strategy and the stock
-        plot_cumulative_returns(data, ticker)
+            #optimize strategy parameters
+            best_params = optimize_strategy(data)
+            rsi_lower, rsi_upper, sma_window, ema_window = best_params
 
-        # Evalulate performance
-        total_stock_return, total_strategy_return = evaluate_performance(data)  # Ensure values are captured
-        annualized_returns(data)
-        calculate_volatility(data)
-        calculate_sharpe_ratio(data)
+            #calculate indicators w/ params
+            data = calculate_indicators(data, rsi_lower, rsi_upper, sma_window, ema_window)
+
+            # Generate buy/sell signals based on RSI and MACD
+            data = generate_signals(data)
+
+            # Create positions based on signals
+            data = create_positions(data)
+
+            # Calculate returns for backtesting
+            data = calculate_returns(data)
+
+            # Plot cumulative  returns of the strategy and the stock
+            plot_cumulative_returns(data, ticker, output_folder)
+
+            # Evalulate performance
+            total_stock_return, total_strategy_return = evaluate_performance(data)  # Ensure values are captured
+            annualized_returns(data)
+            calculate_volatility(data)
+            calculate_sharpe_ratio(data)
+
+        # Save results to CSV
+            try:
+                output_filename = os.path.join(output_folder, f'{ticker}_stock_analysis.csv')
+                data.to_csv(output_filename, index=False)
+                print(f'Data saved to {output_filename}')
+            except Exception as e:
+                print(f'Error saving CSV for {ticker}: {e}.\nSkipping...')
+    
+        except Exception as e:
+            print(f'Error processing data for {ticker}: {e}.\nSkipping...')
 
         # Store performance results
         results.append({
@@ -88,7 +126,7 @@ def main():
 
 
         #Compare results
-        print('\\nPerformance Summary for All Stocks:')
+        print('Performance Summary for All Stocks:')
         for result in results:
             print(f"Ticker: {result['Ticker']}, Total Stock Return: {result['Total Stock Return']:.2%}, Total Strategy Return: {result['Total Strategy Return']:.2%}")
 
@@ -179,7 +217,7 @@ def calculate_returns(data):
 
     return data
 
-def plot_cumulative_returns(data, ticker):
+def plot_cumulative_returns(data, ticker, output_folder):
     plt.figure(figsize=(10, 6))
     plt.plot(data.index, data['Cumulative_Stock_Returns'], label=f'{ticker} Stock Returns', color='blue')
     plt.plot(data.index, data['Cumulative_Strategy_Returns'], label='Strategy Returns', color='green')
@@ -188,7 +226,17 @@ def plot_cumulative_returns(data, ticker):
     plt.ylabel('Cumulative Returns')
     plt.legend()
     plt.grid(True)
+    
+    # Save the plot
+    plot_filename = os.path.join(output_folder, f'{ticker}_cumulative_returns.png')
+    plt.savefig(plot_filename)
+    print(f'Plot saved to {plot_filename}')
+
+    # Display the plot
     plt.show()
+
+    # Close the plot to prevent it from reappearing in the next loop iteration
+    plt.close()
 
 
 def evaluate_performance(data):
